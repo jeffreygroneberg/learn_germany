@@ -208,31 +208,31 @@
     .feedback.correct-fb { color: var(--correct); }
     .feedback.wrong-fb   { color: var(--wrong); }
 
-    /* Score */
+    /* Score – segmented progress bar */
     .score-area {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: .4rem;
     }
     .score-area span { font-size: 1.05rem; }
     .score-num { font-weight: 700; font-size: 1.3rem; }
 
-    /* Progress bar */
-    .progress-wrap {
+    .seg-bar {
+      display: flex;
+      gap: 3px;
       width: 100%;
-      height: 12px;
+      height: 18px;
+    }
+    .seg-bar .seg {
+      flex: 1;
+      border-radius: 4px;
       background: #e2e8f0;
-      border-radius: 6px;
-      overflow: hidden;
-      margin-top: .5rem;
+      transition: background .3s, transform .2s;
     }
-    .progress-bar {
-      height: 100%;
-      background: var(--correct);
-      border-radius: 6px;
-      transition: width .4s ease;
-      width: 0%;
-    }
+    .seg-bar .seg.correct { background: var(--correct); }
+    .seg-bar .seg.wrong   { background: var(--wrong); }
+    .seg-bar .seg.active  { transform: scaleY(1.25); box-shadow: 0 0 0 2px var(--primary); }
 
     /* Buttons */
     .btn {
@@ -317,11 +317,21 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    #mobileBar .mb-score {
-      font-weight: 700;
-      font-size: 1rem;
-      white-space: nowrap;
+    #mobileBar .mb-progress {
+      display: flex;
+      gap: 2px;
+      width: 80px;
+      flex-shrink: 0;
+      height: 12px;
     }
+    #mobileBar .mb-progress .seg {
+      flex: 1;
+      border-radius: 3px;
+      background: #e2e8f0;
+      transition: background .3s;
+    }
+    #mobileBar .mb-progress .seg.correct { background: var(--correct); }
+    #mobileBar .mb-progress .seg.wrong   { background: var(--wrong); }
     #mobileBar .mb-toggle {
       background: none;
       border: none;
@@ -443,14 +453,12 @@
     </div>
 
     <!-- Score -->
-    <div class="card">
+    <div class="card" id="scoreCard">
       <div class="score-area">
-        <span>Punkte: <span class="score-num" id="scoreText">0 / 0</span></span>
+        <span>Punkte: <span class="score-num" id="scoreText">0 / 10</span></span>
         <span id="streakText"></span>
       </div>
-      <div class="progress-wrap">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
+      <div class="seg-bar" id="segBar"></div>
     </div>
 
     <!-- Flag toggle -->
@@ -474,7 +482,7 @@
 <div id="mobileBar">
   <span class="mb-question" id="mbQuestion">…</span>
   <span class="mb-feedback" id="mbFeedback"></span>
-  <span class="mb-score" id="mbScore">0 / 10</span>
+  <div class="mb-progress" id="mbSegBar"></div>
   <button class="mb-toggle" id="mbToggle" aria-label="Menü">▲</button>
 </div>
 
@@ -510,6 +518,7 @@ let questionNum = 0;
 let streak = 0;
 let answered = false;
 const learned = new Set();
+const results = [];  // track each answer: 'correct' | 'wrong'
 
 // ── DOM refs (static – never replaced) ────────────────
 const quizArea     = document.getElementById("quizArea");
@@ -517,7 +526,8 @@ const explorePanel = document.getElementById("explorePanel");
 const exploreInfo  = document.getElementById("exploreInfo");
 const scoreText    = document.getElementById("scoreText");
 const streakText   = document.getElementById("streakText");
-const progressBar  = document.getElementById("progressBar");
+const segBar       = document.getElementById("segBar");
+const mbSegBar     = document.getElementById("mbSegBar");
 const cheatsheet   = document.getElementById("cheatsheet");
 const btnCheat     = document.getElementById("btnCheat");
 
@@ -534,16 +544,29 @@ function shuffle(arr) {
 }
 function isQuiz() { return mode === "quiz-capital" || mode === "quiz-land"; }
 
+function buildSegBars() {
+  [segBar, mbSegBar].forEach(bar => {
+    bar.innerHTML = '';
+    for (let i = 0; i < QUIZ_LENGTH; i++) {
+      const s = document.createElement('div');
+      s.className = 'seg';
+      if (results[i] === 'correct') s.classList.add('correct');
+      else if (results[i] === 'wrong') s.classList.add('wrong');
+      if (i === questionNum && questionNum < QUIZ_LENGTH && bar === segBar) s.classList.add('active');
+      bar.appendChild(s);
+    }
+  });
+}
+
 function updateScore() {
   scoreText.textContent = `${score} / ${QUIZ_LENGTH}`;
-  progressBar.style.width = Math.min((questionNum / QUIZ_LENGTH) * 100, 100) + "%";
   streakText.textContent = streak >= 2 ? `🔥 ${streak} in Folge!` : "";
+  buildSegBars();
   syncMobileBar();
 }
 
 // ── Mobile bar sync ──────────────────────────────────
 const mbQuestion = document.getElementById("mbQuestion");
-const mbScore    = document.getElementById("mbScore");
 const mbFeedback = document.getElementById("mbFeedback");
 const mbToggle   = document.getElementById("mbToggle");
 const sidebar    = document.querySelector(".sidebar");
@@ -573,7 +596,6 @@ if (isMobile()) collapseSidebar();
 function syncMobileBar() {
   const qt = $("questionText");
   const fb = $("feedback");
-  mbScore.textContent = `${score} / ${QUIZ_LENGTH}`;
   if (qt) mbQuestion.textContent = qt.textContent;
   if (fb && fb.textContent.trim() && fb.textContent.trim() !== '\u00a0') {
     mbFeedback.textContent = fb.textContent;
@@ -637,6 +659,7 @@ function handleQuizClick(el) {
 
   if (el.id === currentId) {
     score++; streak++;
+    results.push('correct');
     learned.add(el.id);
     el.classList.add("correct");
     fb.textContent = mode === "quiz-capital"
@@ -645,6 +668,7 @@ function handleQuizClick(el) {
     fb.className = "feedback correct-fb";
   } else {
     streak = 0;
+    results.push('wrong');
     el.classList.add("wrong");
     const ok = document.getElementById(currentId);
     if (ok) ok.classList.add("correct");
@@ -677,6 +701,7 @@ function startQuiz() {
   buildQuizPanel();
   queue = shuffle(Object.keys(DATA).slice()).slice(0, QUIZ_LENGTH);
   score = 0; questionNum = 0; streak = 0;
+  results.length = 0;
   learned.clear();
   clearHighlights();
   updateScore();
