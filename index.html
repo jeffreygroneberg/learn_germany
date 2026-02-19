@@ -276,8 +276,53 @@
     }
     .star { font-size: 2.5rem; }
 
+    /* ---- Mobile bottom bar ---- */
+    #mobileBar {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 100;
+      background: var(--card);
+      box-shadow: 0 -2px 12px rgba(0,0,0,.12);
+      padding: .6rem .8rem;
+      padding-bottom: calc(.6rem + env(safe-area-inset-bottom));
+      align-items: center;
+      gap: .5rem;
+    }
+    #mobileBar .mb-question {
+      flex: 1;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #mobileBar .mb-score {
+      font-weight: 700;
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+    #mobileBar .mb-toggle {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 0 .2rem;
+      line-height: 1;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #mobileBar .mb-feedback {
+      font-size: .85rem;
+      font-weight: 600;
+    }
+    #mobileBar .mb-feedback.correct-fb { color: var(--correct); }
+    #mobileBar .mb-feedback.wrong-fb   { color: var(--wrong); }
+
     /* Responsive */
     @media (max-width: 720px) {
+      #mobileBar { display: flex; }
+      body { padding-bottom: 60px; }
       .container {
         flex-direction: column-reverse;
         align-items: center;
@@ -287,6 +332,9 @@
       #mapWrap, .sidebar { max-width: 100%; flex-basis: auto; }
       #mapWrap { padding: .5rem; }
       .sidebar { width: 100%; max-width: 100%; }
+      .sidebar.collapsed > .card,
+      .sidebar.collapsed > div { display: none; }
+      .sidebar.collapsed { gap: 0; min-height: 0; }
       header h1 { font-size: 1.3rem; }
       header p { font-size: .85rem; }
       .card { padding: 1rem; border-radius: 10px; }
@@ -391,6 +439,14 @@
   </div>
 </div>
 
+<!-- Mobile bottom bar -->
+<div id="mobileBar">
+  <span class="mb-question" id="mbQuestion">…</span>
+  <span class="mb-feedback" id="mbFeedback"></span>
+  <span class="mb-score" id="mbScore">0 / 10</span>
+  <button class="mb-toggle" id="mbToggle" aria-label="Menü">▲</button>
+</div>
+
 <script>
 // ── Data ──────────────────────────────────────────────
 const DATA = {
@@ -451,6 +507,50 @@ function updateScore() {
   scoreText.textContent = `${score} / ${QUIZ_LENGTH}`;
   progressBar.style.width = Math.min((questionNum / QUIZ_LENGTH) * 100, 100) + "%";
   streakText.textContent = streak >= 2 ? `🔥 ${streak} in Folge!` : "";
+  syncMobileBar();
+}
+
+// ── Mobile bar sync ──────────────────────────────────
+const mbQuestion = document.getElementById("mbQuestion");
+const mbScore    = document.getElementById("mbScore");
+const mbFeedback = document.getElementById("mbFeedback");
+const mbToggle   = document.getElementById("mbToggle");
+const sidebar    = document.querySelector(".sidebar");
+let sidebarCollapsed = false;
+
+function isMobile() { return window.innerWidth <= 720; }
+
+function collapseSidebar() {
+  sidebarCollapsed = true;
+  sidebar.classList.add("collapsed");
+  mbToggle.textContent = "▲";
+}
+function expandSidebar() {
+  sidebarCollapsed = false;
+  sidebar.classList.remove("collapsed");
+  mbToggle.textContent = "▼";
+}
+
+mbToggle.addEventListener("click", () => {
+  if (sidebarCollapsed) expandSidebar();
+  else collapseSidebar();
+});
+
+// Start collapsed on mobile
+if (isMobile()) collapseSidebar();
+
+function syncMobileBar() {
+  const qt = $("questionText");
+  const fb = $("feedback");
+  mbScore.textContent = `${score} / ${QUIZ_LENGTH}`;
+  if (qt) mbQuestion.textContent = qt.textContent;
+  if (fb && fb.textContent.trim() && fb.textContent.trim() !== '\u00a0') {
+    mbFeedback.textContent = fb.textContent;
+    mbFeedback.className = "mb-feedback " + (fb.classList.contains("correct-fb") ? "correct-fb" : fb.classList.contains("wrong-fb") ? "wrong-fb" : "");
+  } else {
+    mbFeedback.textContent = "";
+    mbFeedback.className = "mb-feedback";
+  }
 }
 
 function clearHighlights() {
@@ -493,6 +593,7 @@ function nextQuestion() {
   fb.innerHTML = "&nbsp;";
   fb.className = "feedback";
   qc.textContent = `Frage ${Math.min(questionNum + 1, QUIZ_LENGTH)} / ${QUIZ_LENGTH}`;
+  syncMobileBar();
 }
 
 function handleQuizClick(el) {
@@ -537,6 +638,8 @@ function showDone() {
       <p>${score} von ${QUIZ_LENGTH} richtig (${pct}%)</p>
       <button class="btn btn-correct" id="btnDoneRestart">🔄 Nochmal spielen</button>
     </div>`;
+  mbQuestion.textContent = `${emoji} ${score}/${QUIZ_LENGTH} richtig!`;
+  mbFeedback.textContent = "";
 }
 
 function startQuiz() {
@@ -558,6 +661,9 @@ function handleExploreClick(el) {
     exploreInfo.innerHTML = `
       <div class="land-name">${d.name}</div>
       <p>Hauptstadt: <span class="capital">${d.capital}</span></p>`;
+    mbQuestion.textContent = `${d.name} → ${d.capital}`;
+    mbFeedback.textContent = "";
+    mbFeedback.className = "mb-feedback";
   }
 }
 
@@ -583,7 +689,10 @@ document.querySelectorAll(".mode-btn").forEach(btn => {
       quizArea.style.display = "none";
       explorePanel.style.display = "";
       exploreInfo.innerHTML = `<p style="color:var(--muted)">Klicke auf ein Bundesland auf der Karte, um seine Hauptstadt zu sehen.</p>`;
+      mbQuestion.textContent = "🔍 Tippe auf ein Bundesland";
+      mbFeedback.textContent = "";
     }
+    if (isMobile()) collapseSidebar();
   });
 });
 
