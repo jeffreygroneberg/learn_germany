@@ -673,9 +673,9 @@ function handleQuizClick(el) {
     const ok = document.getElementById(currentId);
     if (ok) ok.classList.add("correct");
     const clickedName = DATA[el.id] ? DATA[el.id].name : el.id;
-    fb.textContent = mode === "quiz-capital"
-      ? `❌ ${clickedName} ist falsch – richtig: ${d.name}`
-      : `❌ Du klicktest ${clickedName} – richtig: ${d.name}`;
+    fb.innerHTML = mode === "quiz-capital"
+      ? `❌ ${clickedName} ist falsch – richtig: <span style="color:var(--correct)">${d.name}</span>`
+      : `❌ Du klicktest ${clickedName} – richtig: <span style="color:var(--correct)">${d.name}</span>`;
     fb.className = "feedback wrong-fb";
   }
 
