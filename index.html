@@ -119,21 +119,42 @@
     #arrowOverlay { pointer-events: none; }
     #arrowOverlay line {
       stroke: var(--wrong);
-      stroke-width: 2.5;
-      stroke-dasharray: 8 4;
+      stroke-width: 3;
+      stroke-dasharray: 10 5;
+    }
+    #arrowOverlay line.animated {
+      animation: drawLine 0.8s ease-out forwards;
+    }
+    @keyframes drawLine {
+      from { stroke-dashoffset: var(--line-len); opacity: 0.3; }
+      to   { stroke-dashoffset: 0; opacity: 1; }
     }
     #arrowOverlay .arrow-label {
       font-family: "Segoe UI", system-ui, sans-serif;
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 32px;
+      font-weight: 800;
       paint-order: stroke;
       stroke: #fff;
-      stroke-width: 4px;
+      stroke-width: 6px;
       stroke-linejoin: round;
+      opacity: 0;
+    }
+    #arrowOverlay .arrow-label.show {
+      animation: fadeInLabel 0.4s ease-out forwards;
+    }
+    @keyframes fadeInLabel {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
     #arrowOverlay .arrow-label.wrong-label { fill: var(--wrong); }
     #arrowOverlay .arrow-label.correct-label { fill: var(--correct); }
-    #arrowOverlay polygon { fill: var(--wrong); }
+    #arrowOverlay polygon {
+      fill: var(--wrong);
+      opacity: 0;
+    }
+    #arrowOverlay polygon.show {
+      animation: fadeInLabel 0.3s ease-out forwards;
+    }
 
     /* Flag toggle */
     .flag-toggle {
@@ -646,37 +667,44 @@ function drawArrow(fromEl, toEl, fromName, toName) {
   const bTo   = toEl.getBBox();
   const x1 = bFrom.x + bFrom.width / 2, y1 = bFrom.y + bFrom.height / 2;
   const x2 = bTo.x + bTo.width / 2,     y2 = bTo.y + bTo.height / 2;
+  const lineLen = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 
-  // Dashed line
-  const line = document.createElementNS(ns, 'line');
-  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-  line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-  arrowGroup.appendChild(line);
-
-  // Arrowhead pointing to correct state
-  const angle = Math.atan2(y2 - y1, x2 - x1);
-  const hl = 14, hw = 7;
-  const ax = x2 - hl * Math.cos(angle), ay = y2 - hl * Math.sin(angle);
-  const p1x = ax - hw * Math.sin(angle), p1y = ay + hw * Math.cos(angle);
-  const p2x = ax + hw * Math.sin(angle), p2y = ay - hw * Math.cos(angle);
-  const arrow = document.createElementNS(ns, 'polygon');
-  arrow.setAttribute('points', `${x2},${y2} ${p1x},${p1y} ${p2x},${p2y}`);
-  arrowGroup.appendChild(arrow);
-
-  // Labels
+  // Wrong label (show immediately)
   const labelFrom = document.createElementNS(ns, 'text');
-  labelFrom.setAttribute('x', x1); labelFrom.setAttribute('y', y1 - 12);
+  labelFrom.setAttribute('x', x1); labelFrom.setAttribute('y', y1 - 20);
   labelFrom.setAttribute('text-anchor', 'middle');
-  labelFrom.setAttribute('class', 'arrow-label wrong-label');
+  labelFrom.setAttribute('class', 'arrow-label wrong-label show');
   labelFrom.textContent = `✗ ${fromName}`;
   arrowGroup.appendChild(labelFrom);
 
-  const labelTo = document.createElementNS(ns, 'text');
-  labelTo.setAttribute('x', x2); labelTo.setAttribute('y', y2 - 12);
-  labelTo.setAttribute('text-anchor', 'middle');
-  labelTo.setAttribute('class', 'arrow-label correct-label');
-  labelTo.textContent = `✓ ${toName}`;
-  arrowGroup.appendChild(labelTo);
+  // Animated dashed line
+  const line = document.createElementNS(ns, 'line');
+  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+  line.style.strokeDasharray = `${lineLen}`;
+  line.style.setProperty('--line-len', `${lineLen}`);
+  line.classList.add('animated');
+  arrowGroup.appendChild(line);
+
+  // Arrowhead + correct label appear after line animation
+  setTimeout(() => {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const hl = 18, hw = 10;
+    const ax = x2 - hl * Math.cos(angle), ay = y2 - hl * Math.sin(angle);
+    const p1x = ax - hw * Math.sin(angle), p1y = ay + hw * Math.cos(angle);
+    const p2x = ax + hw * Math.sin(angle), p2y = ay - hw * Math.cos(angle);
+    const arrow = document.createElementNS(ns, 'polygon');
+    arrow.setAttribute('points', `${x2},${y2} ${p1x},${p1y} ${p2x},${p2y}`);
+    arrow.classList.add('show');
+    arrowGroup.appendChild(arrow);
+
+    const labelTo = document.createElementNS(ns, 'text');
+    labelTo.setAttribute('x', x2); labelTo.setAttribute('y', y2 - 20);
+    labelTo.setAttribute('text-anchor', 'middle');
+    labelTo.setAttribute('class', 'arrow-label correct-label show');
+    labelTo.textContent = `✓ ${toName}`;
+    arrowGroup.appendChild(labelTo);
+  }, 800);
 }
 
 // ── Build / restore quiz panel HTML ───────────────────
@@ -748,7 +776,8 @@ function handleQuizClick(el) {
 
   updateScore();
   qc.textContent = `Frage ${Math.min(questionNum, QUIZ_LENGTH)} / ${QUIZ_LENGTH}`;
-  setTimeout(nextQuestion, 1500);
+  const delay = (el.id === currentId) ? 1500 : 3500;
+  setTimeout(nextQuestion, delay);
 }
 
 function showDone() {
