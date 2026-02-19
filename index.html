@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lerne die Hauptstädte der Bundesländer!</title>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --correct: #16a34a;
+      --wrong: #dc2626;
+      --highlight: #fbbf24;
+      --text: #1e293b;
+      --muted: #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--primary);
+      color: #fff;
+      text-align: center;
+      padding: 1rem;
+    }
+    header h1 { font-size: 1.6rem; }
+    header p  { font-size: 0.95rem; opacity: .85; margin-top: .25rem; }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      justify-content: center;
+    }
+
+    /* ---------- Map ---------- */
+    #mapWrap {
+      flex: 1 1 500px;
+      max-width: 600px;
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      padding: 1rem;
+      position: relative;
+    }
+    #mapWrap svg { width: 100%; height: auto; }
+
+    .state {
+      fill: #cbd5e1;
+      stroke: #ffffff;
+      stroke-width: 1.2;
+      cursor: pointer;
+      transition: fill .18s ease, opacity .15s ease;
+    }
+    .state:hover { opacity: .8; }
+    .state.active-question { fill: var(--highlight); }
+    .state.correct  { fill: var(--correct); }
+    .state.wrong    { fill: var(--wrong); }
+    .state.learned  { fill: #86efac; }  /* previously answered correctly */
+
+    /* ---------- Sidebar ---------- */
+    .sidebar {
+      flex: 1 1 280px;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      padding: 1.25rem;
+    }
+
+    /* Mode selector */
+    .mode-selector { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .mode-btn {
+      flex: 1 1 auto;
+      padding: .6rem .5rem;
+      border: 2px solid var(--primary);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--primary);
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      min-width: 0;
+      text-align: center;
+    }
+    .mode-btn.active, .mode-btn:hover {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    /* Quiz area */
+    #quizArea h2 {
+      font-size: 1.15rem;
+      margin-bottom: .5rem;
+      color: var(--muted);
+    }
+    .question-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      min-height: 2.2rem;
+    }
+    .feedback {
+      margin-top: .75rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      min-height: 1.6rem;
+    }
+    .feedback.correct-fb { color: var(--correct); }
+    .feedback.wrong-fb   { color: var(--wrong); }
+
+    /* Score */
+    .score-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .score-area span { font-size: 1.05rem; }
+    .score-num { font-weight: 700; font-size: 1.3rem; }
+
+    /* Progress bar */
+    .progress-wrap {
+      width: 100%;
+      height: 12px;
+      background: #e2e8f0;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: .5rem;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--correct);
+      border-radius: 6px;
+      transition: width .4s ease;
+      width: 0%;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-block;
+      padding: .65rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .1s, box-shadow .15s;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { box-shadow: 0 3px 10px rgba(37,99,235,.35); }
+    .btn-correct { background: var(--correct); color: #fff; }
+
+    .btn-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+
+    /* Explore info */
+    #exploreInfo {
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+    #exploreInfo .land-name {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    #exploreInfo .capital {
+      font-weight: 600;
+    }
+
+    /* Cheat-sheet list */
+    .cheatsheet { margin-top: .5rem; }
+    .cheatsheet li {
+      padding: .25rem 0;
+      list-style: none;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+    }
+    .cheatsheet li:last-child { border: none; }
+    .cheatsheet .land { font-weight: 600; }
+
+    /* Completion screen */
+    .done-screen {
+      text-align: center;
+      padding: 1.5rem;
+    }
+    .done-screen h2 {
+      font-size: 1.8rem;
+      color: var(--correct);
+      margin-bottom: .5rem;
+    }
+    .done-screen p {
+      font-size: 1.1rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .star { font-size: 2.5rem; }
+
+    /* Responsive */
+    @media (max-width: 720px) {
+      .container { flex-direction: column; align-items: center; }
+      #mapWrap, .sidebar { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🇩🇪 Hauptstädte der Bundesländer</h1>
+  <p>Lerne spielerisch die Hauptstädte aller 16 Bundesländer!</p>
+</header>
+
+<div class="container">
+  <div id="mapWrap"></div>
+
+  <div class="sidebar">
+    <!-- Mode selector -->
+    <div class="card">
+      <div class="mode-selector">
+        <button class="mode-btn active" data-mode="quiz-capital">🏛️ Hauptstadt finden</button>
+        <button class="mode-btn" data-mode="quiz-land">🗺️ Bundesland finden</button>
+        <button class="mode-btn" data-mode="explore">🔍 Entdecken</button>
+      </div>
+    </div>
+
+    <!-- Quiz panel -->
+    <div class="card" id="quizArea">
+      <p id="questionCounter" style="font-size:.9rem;color:var(--muted);margin-bottom:.35rem;">Frage 1 / 10</p>
+      <h2 id="questionLabel">Welches Bundesland hat die Hauptstadt:</h2>
+      <div class="question-text" id="questionText">…</div>
+      <div class="feedback" id="feedback">&nbsp;</div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btnRestart">🔄 Neu starten</button>
+      </div>
+    </div>
+
+    <!-- Explore panel (hidden initially) -->
+    <div class="card" id="explorePanel" style="display:none">
+      <div id="exploreInfo">
+        <p style="color:var(--muted)">Klicke auf ein Bundesland auf der Karte, um seine Hauptstadt zu sehen.</p>
+      </div>
+    </div>
+
+    <!-- Score -->
+    <div class="card">
+      <div class="score-area">
+        <span>Punkte: <span class="score-num" id="scoreText">0 / 0</span></span>
+        <span id="streakText"></span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- Cheat-sheet toggle -->
+    <div class="card">
+      <button class="btn btn-primary" id="btnCheat" style="width:100%">📋 Alle Hauptstädte anzeigen</button>
+      <ul class="cheatsheet" id="cheatsheet" style="display:none"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────
+const DATA = {
+  DEBW: { name: "Baden-Württemberg",       capital: "Stuttgart"   },
+  DEBY: { name: "Bayern",                  capital: "München"     },
+  DEBE: { name: "Berlin",                  capital: "Berlin"      },
+  DEBB: { name: "Brandenburg",             capital: "Potsdam"     },
+  DEHB: { name: "Bremen",                  capital: "Bremen"      },
+  DEHH: { name: "Hamburg",                 capital: "Hamburg"     },
+  DEHE: { name: "Hessen",                  capital: "Wiesbaden"   },
+  DEMV: { name: "Mecklenburg-Vorpommern",  capital: "Schwerin"    },
+  DENI: { name: "Niedersachsen",            capital: "Hannover"    },
+  DENW: { name: "Nordrhein-Westfalen",      capital: "Düsseldorf"  },
+  DERP: { name: "Rheinland-Pfalz",          capital: "Mainz"       },
+  DESL: { name: "Saarland",                 capital: "Saarbrücken" },
+  DESN: { name: "Sachsen",                  capital: "Dresden"     },
+  DEST: { name: "Sachsen-Anhalt",            capital: "Magdeburg"   },
+  DESH: { name: "Schleswig-Holstein",        capital: "Kiel"        },
+  DETH: { name: "Thüringen",                capital: "Erfurt"      },
+};
+
+const QUIZ_LENGTH = 10;
+
+// ── State ─────────────────────────────────────────────
+let mode = "quiz-capital";   // "quiz-capital" | "quiz-land" | "explore"
+let queue = [];
+let currentId = null;
+let score = 0;
+let questionNum = 0;
+let streak = 0;
+let answered = false;
+const learned = new Set();
+
+// ── DOM refs (static – never replaced) ────────────────
+const quizArea     = document.getElementById("quizArea");
+const explorePanel = document.getElementById("explorePanel");
+const exploreInfo  = document.getElementById("exploreInfo");
+const scoreText    = document.getElementById("scoreText");
+const streakText   = document.getElementById("streakText");
+const progressBar  = document.getElementById("progressBar");
+const cheatsheet   = document.getElementById("cheatsheet");
+const btnCheat     = document.getElementById("btnCheat");
+
+// Dynamic refs (elements inside quizArea can be rebuilt)
+function $(id) { return document.getElementById(id); }
+
+// ── Helpers ───────────────────────────────────────────
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function isQuiz() { return mode === "quiz-capital" || mode === "quiz-land"; }
+
+function updateScore() {
+  scoreText.textContent = `${score} / ${QUIZ_LENGTH}`;
+  progressBar.style.width = Math.min((questionNum / QUIZ_LENGTH) * 100, 100) + "%";
+  streakText.textContent = streak >= 2 ? `🔥 ${streak} in Folge!` : "";
+}
+
+function clearHighlights() {
+  document.querySelectorAll(".state").forEach(el => {
+    el.classList.remove("active-question", "correct", "wrong");
+    if (learned.has(el.id)) el.classList.add("learned");
+  });
+}
+
+// ── Build / restore quiz panel HTML ───────────────────
+function buildQuizPanel() {
+  quizArea.innerHTML = `
+    <p id="questionCounter" style="font-size:.9rem;color:var(--muted);margin-bottom:.35rem;">Frage 1 / ${QUIZ_LENGTH}</p>
+    <h2 id="questionLabel">…</h2>
+    <div class="question-text" id="questionText">…</div>
+    <div class="feedback" id="feedback">&nbsp;</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnRestart">🔄 Neu starten</button>
+    </div>`;
+}
+
+// ── Quiz logic ────────────────────────────────────────
+function nextQuestion() {
+  if (queue.length === 0 || questionNum >= QUIZ_LENGTH) { showDone(); return; }
+  answered = false;
+  clearHighlights();
+  currentId = queue.pop();
+  const d = DATA[currentId];
+
+  const ql = $("questionLabel"), qt = $("questionText"),
+        fb = $("feedback"), qc = $("questionCounter");
+
+  if (mode === "quiz-capital") {
+    ql.textContent = "Welches Bundesland hat die Hauptstadt:";
+    qt.textContent = d.capital;
+  } else {
+    ql.textContent = "Wo liegt dieses Bundesland? Klicke darauf:";
+    qt.textContent = d.name;
+  }
+  fb.innerHTML = "&nbsp;";
+  fb.className = "feedback";
+  qc.textContent = `Frage ${Math.min(questionNum + 1, QUIZ_LENGTH)} / ${QUIZ_LENGTH}`;
+}
+
+function handleQuizClick(el) {
+  if (answered || !isQuiz()) return;
+  answered = true;
+  questionNum++;
+
+  const d  = DATA[currentId];
+  const fb = $("feedback"), qc = $("questionCounter");
+
+  if (el.id === currentId) {
+    score++; streak++;
+    learned.add(el.id);
+    el.classList.add("correct");
+    fb.textContent = mode === "quiz-capital"
+      ? `✅ Richtig! ${d.name}`
+      : `✅ Richtig! ${d.name} – Hauptstadt: ${d.capital}`;
+    fb.className = "feedback correct-fb";
+  } else {
+    streak = 0;
+    el.classList.add("wrong");
+    const ok = document.getElementById(currentId);
+    if (ok) ok.classList.add("correct");
+    fb.textContent = mode === "quiz-capital"
+      ? `❌ Falsch – es war ${d.name}`
+      : `❌ Falsch – ${d.name} ist dort grün markiert`;
+    fb.className = "feedback wrong-fb";
+  }
+
+  updateScore();
+  qc.textContent = `Frage ${Math.min(questionNum, QUIZ_LENGTH)} / ${QUIZ_LENGTH}`;
+  setTimeout(nextQuestion, 1500);
+}
+
+function showDone() {
+  const pct = Math.round((score / QUIZ_LENGTH) * 100);
+  const emoji = pct === 100 ? "🏆" : pct >= 70 ? "🎉" : pct >= 40 ? "💪" : "⭐";
+  quizArea.innerHTML = `
+    <div class="done-screen">
+      <div class="star">${emoji}</div>
+      <h2>${pct === 100 ? "Perfekt!" : "Runde beendet!"}</h2>
+      <p>${score} von ${QUIZ_LENGTH} richtig (${pct}%)</p>
+      <button class="btn btn-correct" id="btnDoneRestart">🔄 Nochmal spielen</button>
+    </div>`;
+}
+
+function startQuiz() {
+  buildQuizPanel();
+  queue = shuffle(Object.keys(DATA).slice()).slice(0, QUIZ_LENGTH);
+  score = 0; questionNum = 0; streak = 0;
+  learned.clear();
+  clearHighlights();
+  updateScore();
+  nextQuestion();
+}
+
+// ── Explore logic ─────────────────────────────────────
+function handleExploreClick(el) {
+  clearHighlights();
+  el.classList.add("active-question");
+  const d = DATA[el.id];
+  if (d) {
+    exploreInfo.innerHTML = `
+      <div class="land-name">${d.name}</div>
+      <p>Hauptstadt: <span class="capital">${d.capital}</span></p>`;
+  }
+}
+
+// ── Event delegation inside quizArea ──────────────────
+quizArea.addEventListener("click", e => {
+  const id = e.target.id;
+  if (id === "btnRestart")     startQuiz();
+  if (id === "btnDoneRestart") startQuiz();
+});
+
+// ── Mode switching ────────────────────────────────────
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    mode = btn.dataset.mode;
+    clearHighlights();
+    if (isQuiz()) {
+      quizArea.style.display = "";
+      explorePanel.style.display = "none";
+      startQuiz();
+    } else {
+      quizArea.style.display = "none";
+      explorePanel.style.display = "";
+      exploreInfo.innerHTML = `<p style="color:var(--muted)">Klicke auf ein Bundesland auf der Karte, um seine Hauptstadt zu sehen.</p>`;
+    }
+  });
+});
+
+// ── Cheat-sheet ───────────────────────────────────────
+btnCheat.addEventListener("click", () => {
+  const open = cheatsheet.style.display !== "none";
+  cheatsheet.style.display = open ? "none" : "";
+  btnCheat.textContent = open ? "📋 Alle Hauptstädte anzeigen" : "📋 Hauptstädte verbergen";
+});
+(function buildCheatsheet() {
+  const sorted = Object.values(DATA).sort((a, b) => a.name.localeCompare(b.name, "de"));
+  sorted.forEach(d => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="land">${d.name}</span><span>${d.capital}</span>`;
+    cheatsheet.appendChild(li);
+  });
+})();
+
+// ── Load SVG & wire events ────────────────────────────
+fetch("./assets/de.svg")
+  .then(r => r.text())
+  .then(svgText => {
+    document.getElementById("mapWrap").innerHTML = svgText;
+    const svg = document.querySelector("#mapWrap svg");
+    svg.querySelectorAll("#points, #label_points").forEach(g => g.remove());
+
+    svg.querySelectorAll("[id^='DE']").forEach(el => {
+      if (el.tagName !== "path") return;
+      el.classList.add("state");
+      el.addEventListener("click", () => {
+        if (isQuiz()) handleQuizClick(el);
+        else handleExploreClick(el);
+      });
+    });
+
+    startQuiz();
+  });
+</script>
+</body>
+</html>
