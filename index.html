@@ -625,6 +625,7 @@ fetch("./assets/de.svg")
     flagGroup.id = "flagOverlays";
     flagGroup.style.display = "none";
     flagGroup.style.pointerEvents = "none";
+    flagGroup.setAttribute("opacity", "0.82");
 
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
     svg.insertBefore(defs, svg.firstChild);
@@ -642,13 +643,15 @@ fetch("./assets/de.svg")
       defs.appendChild(clipPath);
 
       const bbox = path.getBBox();
+      // Inset the flag image slightly so it doesn't bleed to the very edge
+      const pad = Math.min(bbox.width, bbox.height) * 0.04;
       const img = document.createElementNS("http://www.w3.org/2000/svg", "image");
       img.setAttribute("href", `./assets/flags/${stateId}.svg`);
-      img.setAttribute("x", bbox.x);
-      img.setAttribute("y", bbox.y);
-      img.setAttribute("width", bbox.width);
-      img.setAttribute("height", bbox.height);
-      img.setAttribute("preserveAspectRatio", "xMidYMid slice");
+      img.setAttribute("x", bbox.x + pad);
+      img.setAttribute("y", bbox.y + pad);
+      img.setAttribute("width", bbox.width - pad * 2);
+      img.setAttribute("height", bbox.height - pad * 2);
+      img.setAttribute("preserveAspectRatio", "xMidYMid meet");
       img.setAttribute("clip-path", `url(#clip-${stateId})`);
       flagGroup.appendChild(img);
     });
