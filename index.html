@@ -115,6 +115,26 @@
     .state.wrong    { fill: var(--wrong); }
     .state.learned  { fill: #86efac; }  /* previously answered correctly */
 
+    /* Arrow annotation for wrong answers */
+    #arrowOverlay { pointer-events: none; }
+    #arrowOverlay line {
+      stroke: var(--wrong);
+      stroke-width: 2.5;
+      stroke-dasharray: 8 4;
+    }
+    #arrowOverlay .arrow-label {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      paint-order: stroke;
+      stroke: #fff;
+      stroke-width: 4px;
+      stroke-linejoin: round;
+    }
+    #arrowOverlay .arrow-label.wrong-label { fill: var(--wrong); }
+    #arrowOverlay .arrow-label.correct-label { fill: var(--correct); }
+    #arrowOverlay polygon { fill: var(--wrong); }
+
     /* Flag toggle */
     .flag-toggle {
       display: flex;
@@ -611,6 +631,52 @@ function clearHighlights() {
     el.classList.remove("active-question", "correct", "wrong", "learned");
     if (learned.has(el.id)) el.classList.add("learned");
   });
+  clearArrow();
+}
+
+let arrowGroup = null;
+function clearArrow() {
+  if (arrowGroup) { arrowGroup.innerHTML = ''; }
+}
+function drawArrow(fromEl, toEl, fromName, toName) {
+  if (!arrowGroup) return;
+  clearArrow();
+  const ns = 'http://www.w3.org/2000/svg';
+  const bFrom = fromEl.getBBox();
+  const bTo   = toEl.getBBox();
+  const x1 = bFrom.x + bFrom.width / 2, y1 = bFrom.y + bFrom.height / 2;
+  const x2 = bTo.x + bTo.width / 2,     y2 = bTo.y + bTo.height / 2;
+
+  // Dashed line
+  const line = document.createElementNS(ns, 'line');
+  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+  arrowGroup.appendChild(line);
+
+  // Arrowhead pointing to correct state
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const hl = 14, hw = 7;
+  const ax = x2 - hl * Math.cos(angle), ay = y2 - hl * Math.sin(angle);
+  const p1x = ax - hw * Math.sin(angle), p1y = ay + hw * Math.cos(angle);
+  const p2x = ax + hw * Math.sin(angle), p2y = ay - hw * Math.cos(angle);
+  const arrow = document.createElementNS(ns, 'polygon');
+  arrow.setAttribute('points', `${x2},${y2} ${p1x},${p1y} ${p2x},${p2y}`);
+  arrowGroup.appendChild(arrow);
+
+  // Labels
+  const labelFrom = document.createElementNS(ns, 'text');
+  labelFrom.setAttribute('x', x1); labelFrom.setAttribute('y', y1 - 12);
+  labelFrom.setAttribute('text-anchor', 'middle');
+  labelFrom.setAttribute('class', 'arrow-label wrong-label');
+  labelFrom.textContent = `✗ ${fromName}`;
+  arrowGroup.appendChild(labelFrom);
+
+  const labelTo = document.createElementNS(ns, 'text');
+  labelTo.setAttribute('x', x2); labelTo.setAttribute('y', y2 - 12);
+  labelTo.setAttribute('text-anchor', 'middle');
+  labelTo.setAttribute('class', 'arrow-label correct-label');
+  labelTo.textContent = `✓ ${toName}`;
+  arrowGroup.appendChild(labelTo);
 }
 
 // ── Build / restore quiz panel HTML ───────────────────
@@ -673,6 +739,7 @@ function handleQuizClick(el) {
     const ok = document.getElementById(currentId);
     if (ok) ok.classList.add("correct");
     const clickedName = DATA[el.id] ? DATA[el.id].name : el.id;
+    drawArrow(el, ok || el, clickedName, d.name);
     fb.innerHTML = mode === "quiz-capital"
       ? `❌ ${clickedName} ist falsch – richtig: <span style="color:var(--correct)">${d.name}</span>`
       : `❌ Du klicktest ${clickedName} – richtig: <span style="color:var(--correct)">${d.name}</span>`;
@@ -816,7 +883,10 @@ fetch("./assets/de.svg")
     });
 
     svg.appendChild(flagGroup);
-
+    // Create arrow overlay group
+    arrowGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    arrowGroup.id = "arrowOverlay";
+    svg.appendChild(arrowGroup);
     const flagToggle = document.getElementById("flagToggle");
     const btnFlagToggle = document.getElementById("btnFlagToggle");
 
