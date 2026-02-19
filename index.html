@@ -411,7 +411,7 @@ function updateScore() {
 
 function clearHighlights() {
   document.querySelectorAll(".state").forEach(el => {
-    el.classList.remove("active-question", "correct", "wrong");
+    el.classList.remove("active-question", "correct", "wrong", "learned");
     if (learned.has(el.id)) el.classList.add("learned");
   });
 }
