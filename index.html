@@ -627,32 +627,25 @@ fetch("./assets/de.svg")
     flagGroup.style.pointerEvents = "none";
     flagGroup.setAttribute("opacity", "0.82");
 
-    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-    svg.insertBefore(defs, svg.firstChild);
-
     Object.keys(DATA).forEach(stateId => {
       const path = svg.querySelector(`#${stateId}`);
       if (!path) return;
 
-      const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
-      clipPath.id = `clip-${stateId}`;
-      const clonedPath = path.cloneNode(true);
-      clonedPath.removeAttribute("id");
-      clonedPath.removeAttribute("class");
-      clipPath.appendChild(clonedPath);
-      defs.appendChild(clipPath);
-
       const bbox = path.getBBox();
-      // Inset the flag image slightly so it doesn't bleed to the very edge
-      const pad = Math.min(bbox.width, bbox.height) * 0.04;
+      // Small centered flag: 30% of the shorter dimension
+      const flagSize = Math.min(bbox.width, bbox.height) * 0.30;
+      const flagW = flagSize * 1.5; // flag aspect ratio ~3:2
+      const flagH = flagSize;
+      const cx = bbox.x + bbox.width / 2;
+      const cy = bbox.y + bbox.height / 2;
+
       const img = document.createElementNS("http://www.w3.org/2000/svg", "image");
       img.setAttribute("href", `./assets/flags/${stateId}.svg`);
-      img.setAttribute("x", bbox.x + pad);
-      img.setAttribute("y", bbox.y + pad);
-      img.setAttribute("width", bbox.width - pad * 2);
-      img.setAttribute("height", bbox.height - pad * 2);
+      img.setAttribute("x", cx - flagW / 2);
+      img.setAttribute("y", cy - flagH / 2);
+      img.setAttribute("width", flagW);
+      img.setAttribute("height", flagH);
       img.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      img.setAttribute("clip-path", `url(#clip-${stateId})`);
       flagGroup.appendChild(img);
     });
 
