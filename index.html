@@ -78,6 +78,25 @@
       box-shadow: 0 1px 4px rgba(0,0,0,.12);
     }
     #btnResetZoom:active { transform: scale(.95); }
+    #btnFlagToggle {
+      position: absolute;
+      top: .5rem;
+      left: .5rem;
+      z-index: 10;
+      background: var(--card);
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: .35rem .6rem;
+      font-size: .8rem;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    #btnFlagToggle:active { transform: scale(.95); }
+    #btnFlagToggle.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
 
     .state {
       fill: #cbd5e1;
@@ -391,6 +410,7 @@
 
 <div class="container">
   <div id="mapWrap">
+    <button id="btnFlagToggle" title="Flaggen ein-/ausblenden">🏳️</button>
     <button id="btnResetZoom">🔍 Reset</button>
   </div>
 
@@ -772,9 +792,20 @@ fetch("./assets/de.svg")
     svg.appendChild(flagGroup);
 
     const flagToggle = document.getElementById("flagToggle");
+    const btnFlagToggle = document.getElementById("btnFlagToggle");
+
     flagToggle.addEventListener("change", () => {
       flagGroup.style.display = flagToggle.checked ? "" : "none";
+      btnFlagToggle.classList.toggle("active", flagToggle.checked);
     });
+
+    btnFlagToggle.addEventListener("click", () => {
+      flagToggle.checked = !flagToggle.checked;
+      flagToggle.dispatchEvent(new Event("change"));
+    });
+
+    // Sync initial button state with checkbox
+    btnFlagToggle.classList.toggle("active", flagToggle.checked);
 
     // ── Map zoom & pan ──────────────────────────────────────
     let scale = 1, panX = 0, panY = 0;
