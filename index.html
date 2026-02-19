@@ -53,8 +53,31 @@
       box-shadow: 0 2px 12px rgba(0,0,0,.08);
       padding: 1rem;
       position: relative;
+      overflow: hidden;
+      touch-action: none;
     }
-    #mapWrap svg { width: 100%; height: auto; }
+    #mapWrap svg {
+      width: 100%;
+      height: auto;
+      transform-origin: 0 0;
+      transition: transform .08s linear;
+      display: block;
+    }
+    #btnResetZoom {
+      position: absolute;
+      top: .5rem;
+      right: .5rem;
+      z-index: 10;
+      background: var(--card);
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: .35rem .6rem;
+      font-size: .8rem;
+      cursor: pointer;
+      display: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    #btnResetZoom:active { transform: scale(.95); }
 
     .state {
       fill: #cbd5e1;
@@ -273,7 +296,9 @@
 </header>
 
 <div class="container">
-  <div id="mapWrap"></div>
+  <div id="mapWrap">
+    <button id="btnResetZoom">🔍 Reset</button>
+  </div>
 
   <div class="sidebar">
     <!-- Mode selector -->
@@ -537,8 +562,9 @@ btnCheat.addEventListener("click", () => {
 fetch("./assets/de.svg")
   .then(r => r.text())
   .then(svgText => {
-    document.getElementById("mapWrap").innerHTML = svgText;
-    const svg = document.querySelector("#mapWrap svg");
+    const wrap = document.getElementById("mapWrap");
+    wrap.insertAdjacentHTML("afterbegin", svgText);
+    const svg = wrap.querySelector("svg");
     svg.querySelectorAll("#points, #label_points").forEach(g => g.remove());
 
     svg.querySelectorAll("[id^='DE']").forEach(el => {
@@ -549,6 +575,98 @@ fetch("./assets/de.svg")
         else handleExploreClick(el);
       });
     });
+
+    // ── Map zoom & pan ──────────────────────────────────────
+    let scale = 1, panX = 0, panY = 0;
+    let startDist = 0, startScale = 1;
+    let startTouches = null, startPanX = 0, startPanY = 0;
+    const MIN_SCALE = 1, MAX_SCALE = 5;
+    const resetBtn = document.getElementById("btnResetZoom");
+
+    function applyTransform() {
+      // Clamp pan so map doesn't go out of bounds
+      const rect = wrap.getBoundingClientRect();
+      const svgW = rect.width * scale;
+      const svgH = rect.height * scale;
+      const maxPanX = Math.max(0, svgW - rect.width);
+      const maxPanY = Math.max(0, svgH - rect.height);
+      panX = Math.min(0, Math.max(-maxPanX, panX));
+      panY = Math.min(0, Math.max(-maxPanY, panY));
+      svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+      svg.style.transition = "none";
+      resetBtn.style.display = scale > 1.05 ? "block" : "none";
+    }
+
+    function resetZoom() {
+      scale = 1; panX = 0; panY = 0;
+      svg.style.transition = "transform .25s ease";
+      svg.style.transform = "translate(0,0) scale(1)";
+      resetBtn.style.display = "none";
+    }
+    resetBtn.addEventListener("click", resetZoom);
+
+    function touchDist(t) {
+      const dx = t[0].clientX - t[1].clientX;
+      const dy = t[0].clientY - t[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+    function touchCenter(t) {
+      return {
+        x: (t[0].clientX + t[1].clientX) / 2,
+        y: (t[0].clientY + t[1].clientY) / 2
+      };
+    }
+
+    wrap.addEventListener("touchstart", e => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        startDist = touchDist(e.touches);
+        startScale = scale;
+        startTouches = touchCenter(e.touches);
+        startPanX = panX;
+        startPanY = panY;
+      } else if (e.touches.length === 1 && scale > 1.05) {
+        startTouches = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        startPanX = panX;
+        startPanY = panY;
+      }
+    }, { passive: false });
+
+    wrap.addEventListener("touchmove", e => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = touchDist(e.touches);
+        const center = touchCenter(e.touches);
+        const rect = wrap.getBoundingClientRect();
+        const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, startScale * (dist / startDist)));
+        // Zoom toward pinch center
+        const cx = center.x - rect.left;
+        const cy = center.y - rect.top;
+        panX = cx - (cx - startPanX) * (newScale / startScale) + (center.x - startTouches.x);
+        panY = cy - (cy - startPanY) * (newScale / startScale) + (center.y - startTouches.y);
+        scale = newScale;
+        applyTransform();
+      } else if (e.touches.length === 1 && scale > 1.05) {
+        e.preventDefault();
+        panX = startPanX + (e.touches[0].clientX - startTouches.x);
+        panY = startPanY + (e.touches[0].clientY - startTouches.y);
+        applyTransform();
+      }
+    }, { passive: false });
+
+    // Mouse wheel zoom (desktop)
+    wrap.addEventListener("wheel", e => {
+      e.preventDefault();
+      const rect = wrap.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
+      panX = cx - (cx - panX) * (newScale / scale);
+      panY = cy - (cy - panY) * (newScale / scale);
+      scale = newScale;
+      applyTransform();
+    }, { passive: false });
 
     startQuiz();
   });
