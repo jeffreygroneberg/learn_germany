@@ -336,7 +336,38 @@
     }
     .star { font-size: 2.5rem; }
 
-    /* ---- Mobile bottom bar ---- */
+    /* ---- Mobile top bar (question) ---- */
+    #mobileTopBar {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: var(--primary);
+      color: #fff;
+      text-align: center;
+      padding: .5rem .8rem;
+      padding-top: calc(.5rem + env(safe-area-inset-top));
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    #mobileTopBar .mt-label {
+      font-size: .75rem;
+      opacity: .8;
+      margin-bottom: .15rem;
+    }
+    #mobileTopBar .mt-question {
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+    #mobileTopBar .mt-feedback {
+      font-size: .85rem;
+      font-weight: 600;
+      min-height: 1.2em;
+      margin-top: .15rem;
+    }
+    #mobileTopBar .mt-feedback.correct-fb { color: #bbf7d0; }
+    #mobileTopBar .mt-feedback.wrong-fb   { color: #fecaca; }
+
+    /* ---- Mobile bottom bar (progress + restart) ---- */
     #mobileBar {
       display: none;
       position: fixed;
@@ -344,35 +375,44 @@
       z-index: 100;
       background: var(--card);
       box-shadow: 0 -2px 12px rgba(0,0,0,.12);
-      padding: .6rem .8rem;
-      padding-bottom: calc(.6rem + env(safe-area-inset-bottom));
+      padding: .5rem .8rem;
+      padding-bottom: calc(.5rem + env(safe-area-inset-bottom));
+      flex-direction: column;
+      gap: .4rem;
+    }
+    #mobileBar .mb-bar-row {
+      display: flex;
       align-items: center;
       gap: .5rem;
-    }
-    #mobileBar .mb-question {
-      flex: 1;
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      width: 100%;
     }
     #mobileBar .mb-progress {
       display: flex;
       gap: 2px;
-      width: 80px;
-      flex-shrink: 0;
-      height: 12px;
+      flex: 1;
+      height: 16px;
     }
     #mobileBar .mb-progress .seg {
       flex: 1;
-      border-radius: 3px;
+      border-radius: 4px;
       background: #e2e8f0;
       transition: background .3s;
     }
     #mobileBar .mb-progress .seg.correct { background: var(--correct); }
     #mobileBar .mb-progress .seg.wrong   { background: var(--wrong); }
+    #mobileBar .mb-restart {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: .4rem .7rem;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #mobileBar .mb-restart:active { transform: scale(.95); }
     #mobileBar .mb-toggle {
       background: none;
       border: none;
@@ -382,17 +422,12 @@
       line-height: 1;
       -webkit-tap-highlight-color: transparent;
     }
-    #mobileBar .mb-feedback {
-      font-size: .85rem;
-      font-weight: 600;
-    }
-    #mobileBar .mb-feedback.correct-fb { color: var(--correct); }
-    #mobileBar .mb-feedback.wrong-fb   { color: var(--wrong); }
 
     /* Responsive */
     @media (max-width: 720px) {
+      #mobileTopBar { display: block; }
       #mobileBar { display: flex; }
-      body { padding-bottom: 56px; }
+      body { padding-top: 72px; padding-bottom: 52px; }
       header { display: none; }
       .container {
         flex-direction: column-reverse;
@@ -407,8 +442,8 @@
         border-radius: 0;
         box-shadow: none;
         padding: 0;
-        min-height: calc(100vh - 56px);
-        min-height: calc(100dvh - 56px);
+        min-height: calc(100vh - 72px - 52px);
+        min-height: calc(100dvh - 72px - 52px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -519,12 +554,20 @@
   </div>
 </div>
 
-<!-- Mobile bottom bar -->
+<!-- Mobile top bar (question) -->
+<div id="mobileTopBar">
+  <div class="mt-label" id="mtLabel">Welches Bundesland hat die Hauptstadt:</div>
+  <div class="mt-question" id="mtQuestion">…</div>
+  <div class="mt-feedback" id="mtFeedback"></div>
+</div>
+
+<!-- Mobile bottom bar (progress + restart) -->
 <div id="mobileBar">
-  <span class="mb-question" id="mbQuestion">…</span>
-  <span class="mb-feedback" id="mbFeedback"></span>
-  <div class="mb-progress" id="mbSegBar"></div>
-  <button class="mb-toggle" id="mbToggle" aria-label="Menü">▲</button>
+  <div class="mb-bar-row">
+    <div class="mb-progress" id="mbSegBar"></div>
+    <button class="mb-restart" id="mbRestart">🔄</button>
+    <button class="mb-toggle" id="mbToggle" aria-label="Menü">▲</button>
+  </div>
 </div>
 
 <script>
@@ -575,6 +618,40 @@ const btnCheat     = document.getElementById("btnCheat");
 // Dynamic refs (elements inside quizArea can be rebuilt)
 function $(id) { return document.getElementById(id); }
 
+// ── Sound effects (Web Audio API) ─────────────────────
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playCorrectSound() {
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(523, now);        // C5
+  osc.frequency.setValueAtTime(659, now + 0.1);  // E5
+  osc.frequency.setValueAtTime(784, now + 0.2);  // G5
+  gain.gain.setValueAtTime(0.25, now);
+  gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+  osc.start(now);
+  osc.stop(now + 0.45);
+}
+
+function playWrongSound() {
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(330, now);        // E4
+  osc.frequency.setValueAtTime(262, now + 0.15); // C4
+  gain.gain.setValueAtTime(0.18, now);
+  gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+  osc.start(now);
+  osc.stop(now + 0.35);
+}
+
 // ── Helpers ───────────────────────────────────────────
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -607,9 +684,11 @@ function updateScore() {
 }
 
 // ── Mobile bar sync ──────────────────────────────────
-const mbQuestion = document.getElementById("mbQuestion");
-const mbFeedback = document.getElementById("mbFeedback");
+const mtLabel    = document.getElementById("mtLabel");
+const mtQuestion = document.getElementById("mtQuestion");
+const mtFeedback = document.getElementById("mtFeedback");
 const mbToggle   = document.getElementById("mbToggle");
+const mbRestart  = document.getElementById("mbRestart");
 const sidebar    = document.querySelector(".sidebar");
 let sidebarCollapsed = false;
 
@@ -630,20 +709,23 @@ mbToggle.addEventListener("click", () => {
   if (sidebarCollapsed) expandSidebar();
   else collapseSidebar();
 });
+mbRestart.addEventListener("click", () => startQuiz());
 
 // Start collapsed on mobile
 if (isMobile()) collapseSidebar();
 
 function syncMobileBar() {
   const qt = $("questionText");
+  const ql = $("questionLabel");
   const fb = $("feedback");
-  if (qt) mbQuestion.textContent = qt.textContent;
+  if (ql) mtLabel.textContent = ql.textContent;
+  if (qt) mtQuestion.textContent = qt.textContent;
   if (fb && fb.textContent.trim() && fb.textContent.trim() !== '\u00a0') {
-    mbFeedback.textContent = fb.textContent;
-    mbFeedback.className = "mb-feedback " + (fb.classList.contains("correct-fb") ? "correct-fb" : fb.classList.contains("wrong-fb") ? "wrong-fb" : "");
+    mtFeedback.textContent = fb.textContent;
+    mtFeedback.className = "mt-feedback " + (fb.classList.contains("correct-fb") ? "correct-fb" : fb.classList.contains("wrong-fb") ? "wrong-fb" : "");
   } else {
-    mbFeedback.textContent = "";
-    mbFeedback.className = "mb-feedback";
+    mtFeedback.textContent = "";
+    mtFeedback.className = "mt-feedback";
   }
 }
 
@@ -756,6 +838,7 @@ function handleQuizClick(el) {
     results.push('correct');
     learned.add(el.id);
     el.classList.add("correct");
+    playCorrectSound();
     fb.textContent = mode === "quiz-capital"
       ? `✅ Richtig! ${d.name}`
       : `✅ Richtig! ${d.name} – Hauptstadt: ${d.capital}`;
@@ -768,6 +851,7 @@ function handleQuizClick(el) {
     if (ok) ok.classList.add("correct");
     const clickedName = DATA[el.id] ? DATA[el.id].name : el.id;
     drawArrow(el, ok || el, clickedName, d.name);
+    playWrongSound();
     fb.innerHTML = mode === "quiz-capital"
       ? `❌ ${clickedName} ist falsch – richtig: <span style="color:var(--correct)">${d.name}</span>`
       : `❌ Du klicktest ${clickedName} – richtig: <span style="color:var(--correct)">${d.name}</span>`;
