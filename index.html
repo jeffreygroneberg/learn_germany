@@ -322,21 +322,32 @@
     /* Responsive */
     @media (max-width: 720px) {
       #mobileBar { display: flex; }
-      body { padding-bottom: 60px; }
+      body { padding-bottom: 56px; }
+      header { display: none; }
       .container {
         flex-direction: column-reverse;
-        align-items: center;
-        padding: 1rem .5rem;
-        gap: 1rem;
+        align-items: stretch;
+        padding: 0;
+        gap: 0;
+        max-width: 100%;
       }
-      #mapWrap, .sidebar { max-width: 100%; flex-basis: auto; }
-      #mapWrap { padding: .5rem; }
-      .sidebar { width: 100%; max-width: 100%; }
+      #mapWrap {
+        max-width: 100%;
+        flex-basis: auto;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+        min-height: calc(100vh - 56px);
+        min-height: calc(100dvh - 56px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #mapWrap svg { width: 100%; height: auto; }
+      .sidebar { max-width: 100%; flex-basis: auto; width: 100%; padding: .5rem; }
       .sidebar.collapsed > .card,
       .sidebar.collapsed > div { display: none; }
-      .sidebar.collapsed { gap: 0; min-height: 0; }
-      header h1 { font-size: 1.3rem; }
-      header p { font-size: .85rem; }
+      .sidebar.collapsed { gap: 0; min-height: 0; padding: 0; }
       .card { padding: 1rem; border-radius: 10px; }
       .mode-btn {
         padding: .7rem .4rem;
